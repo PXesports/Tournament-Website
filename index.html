@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PX Esports | Offical Tournament </title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="logo3.png">
+    <style>
+        :root {
+            --primary: #ff4757; /* Red */
+            --dark: #1e1e2f;    /* Dark Blue/Black */
+            --darker: #13131f;
+            --light: #f1f2f6;
+            --gold: #ffa502;
+            --success: #2ed573;
+            --gray: #747d8c;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--darker); color: var(--light); display: flex; flex-direction: column; min-height: 100vh; }
+
+        /* --- Notifications (Toast) --- */
+        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 2000; }
+        .toast {
+            background: var(--dark); border-left: 5px solid var(--primary);
+            padding: 15px 20px; margin-bottom: 10px; border-radius: 4px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); opacity: 0; transform: translateX(50px);
+            transition: 0.3s ease; display: flex; align-items: center; gap: 10px;
+        }
+        .toast.show { opacity: 1; transform: translateX(0); }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--primary); }
+        
+        /* --- Auth Screen --- */
+        #auth-screen {
+            display: flex; justify-content: center; align-items: center; height: 100vh;
+            background: linear-gradient(135deg, var(--darker), #2c3e50);
+        }
+        .auth-box {
+            background: var(--dark); padding: 40px; border-radius: 10px; width: 100%; max-width: 400px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6); text-align: center;
+        }
+        .auth-box h2 { margin-bottom: 20px; color: var(--primary); letter-spacing: 2px; }
+        .input-group { margin-bottom: 15px; text-align: left; }
+        .input-group label { display: block; margin-bottom: 5px; font-size: 0.9em; color: #ccc; }
+        .input-group input, .input-group textarea {
+            width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444;
+            background: #2f3542; color: white; outline: none;
+        }
+        .btn {
+            width: 100%; padding: 10px; background: var(--primary); color: white; border: none;
+            border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; transition: 0.2s;
+        }
+        .btn:hover { background: #ff6b81; }
+        .btn.secondary { background: var(--gray); }
+        .toggle-link { margin-top: 15px; font-size: 0.9em; cursor: pointer; color: var(--gold); }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; font-size: 0.9em; margin-bottom: 10px;}
+
+        /* --- Main App --- */
+        #app-screen { display: none; height: 100vh; flex-direction: column; }
+        
+        /* Navigation */
+        nav {
+            background: var(--dark); padding: 15px; display: flex; justify-content: space-between;
+            align-items: center; border-bottom: 2px solid var(--primary);
+        }
+        .logo { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+        .nav-links { display: flex; gap: 10px; flex-wrap: wrap; }
+        .nav-item { cursor: pointer; padding: 8px 12px; transition: 0.2s; border-radius: 4px; font-size: 0.9rem;}
+        .nav-item:hover, .nav-item.active { background: var(--primary); color: white; }
+        .nav-item.restricted { display: none; }
+        .logout-btn { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        /* Content Area */
+        main { flex: 1; padding: 20px; overflow-y: auto; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        h2.section-title { border-left: 5px solid var(--primary); padding-left: 10px; margin-bottom: 20px; }
+
+        /* Cards & Lists */
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .card { background: var(--dark); padding: 20px; border-radius: 8px; border: 1px solid #333; position: relative; }
+        .card h3 { color: var(--gold); margin-bottom: 10px; }
+        .card p { margin-bottom: 5px; color: #ddd; font-size: 0.9rem; }
+        .card .details { font-size: 0.85rem; color: #aaa; background: #252535; padding: 8px; border-radius: 4px; margin-top: 10px; white-space: pre-wrap; }
+
+        /* Chat Styles */
+        #chat-container { display: flex; flex-direction: column; height: 75vh; background: var(--dark); border-radius: 10px; overflow: hidden; border: 1px solid #333; }
+        #chat-messages { flex: 1; padding: 20px; overflow-y: scroll; display: flex; flex-direction: column; gap: 10px; }
+        .message { padding: 10px; background: #2f3542; border-radius: 5px; max-width: 85%; position: relative; }
+        .message.self { align-self: flex-end; background: #3742fa; }
+        .msg-header { font-size: 0.75em; color: #ccc; margin-bottom: 4px; display: flex; gap: 5px; align-items: center; }
+        .badge-owner { color: var(--gold); }
+        .badge-admin { color: var(--primary); font-weight: bold; }
+        .msg-text { word-wrap: break-word; line-height: 1.4; }
+        
+        /* Chat Menu (Three Dots) */
+        .msg-menu-btn { cursor: pointer; padding: 0 5px; color: #aaa; margin-left: auto; font-size: 1.2em; }
+        .msg-menu-btn:hover { color: white; }
+        .msg-dropdown { 
+            position: absolute; top: 25px; right: 10px; background: #222; border: 1px solid #444; 
+            border-radius: 4px; z-index: 100; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); min-width: 120px;
+        }
+        .msg-dropdown.show { display: block; }
+        .menu-item { padding: 8px 12px; cursor: pointer; font-size: 0.85em; color: #ddd; border-bottom: 1px solid #333; }
+        .menu-item:last-child { border-bottom: none; }
+        .menu-item:hover { background: var(--primary); color: white; }
+        .menu-item.delete { color: #ff4757; }
+        .menu-item.delete:hover { background: #ff4757; color: white; }
+
+        #chat-input-area { padding: 15px; background: #252535; display: flex; gap: 10px; }
+        #chat-input { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e1e2f; color: white; }
+
+        /* Join & Play */
+        .payment-box { text-align: center; background: white; color: black; padding: 20px; border-radius: 10px; max-width: 400px; margin: 0 auto; }
+        .qr-img { width: 200px; height: 200px; object-fit: cover; margin: 15px 0; }
+        .discord-btn { background: #5865F2; color: white; display: inline-block; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+
+        /* Admin Management Area */
+        .admin-panel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .admin-form { background: #252535; padding: 20px; border-radius: 8px; height: 100%; }
+        .admin-list { background: #252535; padding: 20px; border-radius: 8px; height: 100%; overflow-y: auto; max-height: 400px; }
+        
+        .list-item { 
+            background: var(--dark); padding: 10px; margin-bottom: 10px; border-radius: 4px; 
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid #333;
+        }
+        .item-actions button { padding: 5px 10px; font-size: 0.8em; margin-left: 5px; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--dark); font-size: 0.9em; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #444; }
+        th { background: #252535; color: var(--gold); }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; flex-direction: column; width: 100%; background: var(--dark); position: absolute; top: 60px; left: 0; padding: 20px; z-index: 100; border-bottom: 2px solid var(--primary); }
+            .nav-links.active { display: flex; }
+            .hamburger { display: block; font-size: 1.5rem; cursor: pointer; }
+            .admin-panel-grid { grid-template-columns: 1fr; }
+        }
+        @media (min-width: 769px) { .hamburger { display: none; } }
+    </style>
+</head>
+<body>
+
+    <div id="toast-container"></div>
+
+    <section id="auth-screen">
+        <div class="auth-box">
+            <h2>PX ESPORTS</h2>
+            
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="login-email" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="login-pass" required>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="stay-logged-in">
+                    <label for="stay-logged-in">Stay Logged In</label>
+                </div>
+                <button type="submit" class="btn">LOGIN</button>
+                <div class="toggle-link" onclick="toggleAuth('register')">Create an Account</div>
+            </form>
+
+            <form id="register-form" style="display: none;">
+                <div class="input-group">
+                    <label>Username (Unique)</label>
+                    <input type="text" id="reg-username" required placeholder="e.g. ProGamer123">
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <input type="email" id="reg-email" required>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <input type="password" id="reg-pass" required>
+                </div>
+                <button type="submit" class="btn">REGISTER</button>
+                <div class="toggle-link" onclick="toggleAuth('login')">Back to Login</div>
+            </form>
+        </div>
+    </section>
+
+    <section id="app-screen">
+        <nav>
+            
+            <div class="logo">PX ESPORTS</div>
+            <div class="hamburger" onclick="toggleMenu()"><i class="fas fa-bars"></i></div>
+            <div class="nav-links" id="nav-links">
+                <div class="nav-item active" onclick="switchTab('tournaments')">Tournaments</div>
+                <div class="nav-item" onclick="switchTab('teams')">Teams</div>
+                <div class="nav-item" onclick="switchTab('results')">Results</div>
+                <div class="nav-item" onclick="switchTab('chat')">Chat</div>
+                <div class="nav-item" onclick="switchTab('join')">Join & Play</div>
+                <div class="nav-item restricted admin-only" onclick="switchTab('admin')">Admin Zone</div>
+                <div class="nav-item restricted owner-only" onclick="switchTab('owner')">Owner Panel</div>
+                <button class="nav-item logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </nav>
+
+        <main>
+            <div id="tournaments" class="tab-content active">
+                <h2 class="section-title">Upcoming Tournaments</h2>
+                <div id="public-tournaments-list" class="card-grid">Loading...</div>
+            </div>
+
+            <div id="teams" class="tab-content">
+                <h2 class="section-title">Registered Teams</h2>
+                <div id="public-teams-list" class="card-grid">Loading...</div>
+            </div>
+
+            <div id="results" class="tab-content">
+                <h2 class="section-title">Match Results</h2>
+                <div id="public-results-list" class="card-grid">Loading...</div>
+            </div>
+
+            <div id="chat" class="tab-content">
+                <h2 class="section-title">Global Chat</h2>
+                <div id="chat-container">
+                    <div id="chat-messages"></div>
+                    <div id="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Type a message...">
+                        <button class="btn" style="width: auto;" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="join" class="tab-content">
+                <h2 class="section-title">Join & Play</h2>
+                <div class="payment-box">
+                    <h3>Entry Fee Payment</h3>
+                    <p>Pay via UPI ID: <strong>7296922359@fam</strong></p>
+                    <img src="qrcode.jpg" alt="Payment QR Code" class="qr-img">
+                    <br>
+                    <a href="upi://pay?pa=7296922359@fam&pn=PX%20Esports" class="btn" style="display:inline-block; margin-bottom: 20px;">Pay via UPI App</a>
+                    <hr style="border-top: 1px solid #ddd; margin: 15px 0;">
+                    <p>Join Discord to confirm slot:</p>
+                    <a href="https://discord.gg/3erVQMraDU" target="_blank" class="discord-btn"><i class="fab fa-discord"></i> Join Discord Server</a>
+                </div>
+            </div>
+
+            <div id="admin" class="tab-content">
+                <h2 class="section-title" style="color:red">Admin Zone</h2>
+                <p style="margin-bottom: 20px; color: #aaa;">Create, Edit and Delete content here. Changes appear in public tabs.</p>
+
+                <h3 style="color:var(--gold); margin-bottom:10px;">Manage Tournaments</h3>
+                <div class="admin-panel-grid">
+                    <div class="admin-form">
+                        <h4 id="t-form-title">Create Tournament</h4>
+                        <input type="hidden" id="t-id"> <div class="input-group">
+                            <input type="text" id="t-name" placeholder="Tournament Name">
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="t-date" placeholder="Date & Time (e.g. 25 Oct, 8:00 PM)">
+                        </div>
+                        <div class="input-group">
+                            <textarea id="t-details" rows="4" placeholder="Enter Details: Map, Mode, Prize Pool, Rules..."></textarea>
+                        </div>
+                        <button class="btn" onclick="saveTournament()">Save Tournament</button>
+                        <button class="btn secondary" onclick="resetForm('t')">Cancel / Clear</button>
+                    </div>
+                    <div class="admin-list" id="admin-tournaments-list">Loading...</div>
+                </div>
+
+                <h3 style="color:var(--gold); margin-bottom:10px; border-top: 1px solid #333; padding-top: 20px;">Manage Teams</h3>
+                <div class="admin-panel-grid">
+                    <div class="admin-form">
+                        <h4 id="tm-form-title">Create Team</h4>
+                        <input type="hidden" id="tm-id">
+                        <div class="input-group">
+                            <input type="text" id="tm-name" placeholder="Team Name">
+                        </div>
+                        <div class="input-group">
+                            <textarea id="tm-players" rows="3" placeholder="Player Names (comma separated)"></textarea>
+                        </div>
+                        <button class="btn" onclick="saveTeam()">Save Team</button>
+                        <button class="btn secondary" onclick="resetForm('tm')">Cancel / Clear</button>
+                    </div>
+                    <div class="admin-list" id="admin-teams-list">Loading...</div>
+                </div>
+
+                <h3 style="color:var(--gold); margin-bottom:10px; border-top: 1px solid #333; padding-top: 20px;">Manage Results</h3>
+                <div class="admin-panel-grid">
+                    <div class="admin-form">
+                        <h4 id="r-form-title">Post Result</h4>
+                        <input type="hidden" id="r-id">
+                        <div class="input-group">
+                            <input type="text" id="r-name" placeholder="Tournament Name">
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="r-winner" placeholder="Winner Team">
+                        </div>
+                        <div class="input-group">
+                            <input type="text" id="r-runner" placeholder="Runner Up Team">
+                        </div>
+                        <button class="btn" onclick="saveResult()">Save Result</button>
+                        <button class="btn secondary" onclick="resetForm('r')">Cancel / Clear</button>
+                    </div>
+                    <div class="admin-list" id="admin-results-list">Loading...</div>
+                </div>
+
+                <h3 style="color:var(--gold); margin-bottom:10px; border-top: 1px solid #333; padding-top: 20px;">Player Database</h3>
+                <div class="admin-form" style="width: 100%;">
+                    <input type="text" id="player-search" placeholder="Search Username or Email..." style="width:100%; padding:10px;" onkeyup="searchPlayers()">
+                    <table id="player-table">
+                        <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="owner" class="tab-content">
+                <h2 class="section-title" style="color:var(--gold)">Owner Panel</h2>
+                <div class="admin-form">
+                    <h3>Manage Admin Powers</h3>
+                    <p>Enter email to Grant/Revoke Admin Access</p>
+                    <input type="email" id="admin-grant-email" placeholder="User Email" style="width:100%; padding:10px; margin: 10px 0;">
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn" style="background:var(--success)" onclick="setRole('admin')">Make Admin</button>
+                        <button class="btn" style="background:var(--primary)" onclick="setRole('member')">Revoke Admin</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </section>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+        // --- FIREBASE CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDgsTvaMxvxjOwVkarb-q0_S3UeXwB7DI4",
+            authDomain: "px-esports-ed887.firebaseapp.com",
+            databaseURL: "https://px-esports-ed887-default-rtdb.firebaseio.com",
+            projectId: "px-esports-ed887",
+            storageBucket: "px-esports-ed887.firebasestorage.app",
+            messagingSenderId: "341681199686",
+            appId: "1:341681199686:web:a674316240f342ce6b8847",
+            measurementId: "G-L20GGBHS9Q"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        // Global State
+        let currentUser = null;
+        let userData = null;
+        const owners = ["ayushmaharia70@gmail.com", "aftabharis242@gmail.com"];
+
+        // --- AUTH LOGIC ---
+        
+        // Register
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('reg-username').value.trim();
+            const email = document.getElementById('reg-email').value;
+            const pass = document.getElementById('reg-pass').value;
+
+            const snapshot = await db.collection('users').where('username', '==', user).get();
+            if (!snapshot.empty) {
+                showToast("Username taken!", "error");
+                return;
+            }
+
+            try {
+                const cred = await auth.createUserWithEmailAndPassword(email, pass);
+                let role = "member";
+                if(owners.includes(email)) role = "owner";
+
+                await db.collection('users').doc(cred.user.uid).set({
+                    username: user,
+                    email: email,
+                    role: role,
+                    mutedUntil: 0, // Timestamp for timeout
+                    uid: cred.user.uid
+                });
+                showToast("Welcome!", "success");
+            } catch (error) {
+                showToast(error.message, "error");
+            }
+        });
+
+        // Login
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            const stay = document.getElementById('stay-logged-in').checked;
+
+            try {
+                await auth.setPersistence(stay ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+                await auth.signInWithEmailAndPassword(email, pass);
+                showToast("Logged In", "success");
+            } catch (error) {
+                showToast(error.message, "error");
+            }
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                const doc = await db.collection('users').doc(user.uid).get();
+                userData = doc.data();
+
+                document.getElementById('auth-screen').style.display = 'none';
+                document.getElementById('app-screen').style.display = 'flex';
+                
+                applyRoles();
+                initRealtimeListeners();
+            } else {
+                currentUser = null;
+                userData = null;
+                document.getElementById('auth-screen').style.display = 'flex';
+                document.getElementById('app-screen').style.display = 'none';
+            }
+        });
+
+        function logout() {
+            auth.signOut();
+            showToast("Logged Out", "success");
+        }
+
+        // --- UI & NAV ---
+        function toggleAuth(type) {
+            document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
+            document.getElementById('register-form').style.display = type === 'register' ? 'block' : 'none';
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('nav-links').classList.remove('active');
+        }
+
+        function toggleMenu() { document.getElementById('nav-links').classList.toggle('active'); }
+
+        function applyRoles() {
+            document.querySelectorAll('.restricted').forEach(el => el.style.display = 'none');
+            if (userData.role === 'owner') {
+                document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'block');
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+            } else if (userData.role === 'admin') {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
+            }
+        }
+
+        function showToast(msg, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- DATA MANAGEMENT (REALTIME) ---
+
+        function initRealtimeListeners() {
+            // 1. Tournaments
+            db.collection('tournaments').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const publicDiv = document.getElementById('public-tournaments-list');
+                const adminDiv = document.getElementById('admin-tournaments-list');
+                publicDiv.innerHTML = "";
+                adminDiv.innerHTML = "";
+
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    // Public Card
+                    publicDiv.innerHTML += `
+                        <div class="card">
+                            <h3>${d.name}</h3>
+                            <p><strong><i class="far fa-calendar-alt"></i></strong> ${d.date}</p>
+                            <div class="details">${d.details || "No additional details."}</div>
+                        </div>`;
+                    
+                    // Admin List Item
+                    adminDiv.innerHTML += `
+                        <div class="list-item">
+                            <div><strong>${d.name}</strong><br><small>${d.date}</small></div>
+                            <div class="item-actions">
+                                <button class="btn secondary" onclick="editTournament('${doc.id}', '${escape(d.name)}', '${escape(d.date)}', '${escape(d.details)}')"><i class="fas fa-edit"></i></button>
+                                <button class="btn" style="background:var(--primary)" onclick="deleteDoc('tournaments','${doc.id}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                });
+            });
+
+            // 2. Teams
+            db.collection('teams').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const publicDiv = document.getElementById('public-teams-list');
+                const adminDiv = document.getElementById('admin-teams-list');
+                publicDiv.innerHTML = "";
+                adminDiv.innerHTML = "";
+
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    publicDiv.innerHTML += `
+                        <div class="card">
+                            <h3>${d.name}</h3>
+                            <p><strong>Players:</strong></p>
+                            <div class="details">${d.players || "TBA"}</div>
+                        </div>`;
+                    
+                    adminDiv.innerHTML += `
+                        <div class="list-item">
+                            <div><strong>${d.name}</strong></div>
+                            <div class="item-actions">
+                                <button class="btn secondary" onclick="editTeam('${doc.id}', '${escape(d.name)}', '${escape(d.players)}')"><i class="fas fa-edit"></i></button>
+                                <button class="btn" style="background:var(--primary)" onclick="deleteDoc('teams','${doc.id}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                });
+            });
+
+            // 3. Results
+            db.collection('results').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                const publicDiv = document.getElementById('public-results-list');
+                const adminDiv = document.getElementById('admin-results-list');
+                publicDiv.innerHTML = "";
+                adminDiv.innerHTML = "";
+
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    publicDiv.innerHTML += `
+                        <div class="card" style="border-color: var(--gold)">
+                            <h3>🏆 ${d.tournament}</h3>
+                            <p><strong>Winner:</strong> ${d.winner}</p>
+                            <p><strong>Runner Up:</strong> ${d.runner}</p>
+                        </div>`;
+                    
+                    adminDiv.innerHTML += `
+                        <div class="list-item">
+                            <div><strong>${d.tournament}</strong><br><small>W: ${d.winner}</small></div>
+                            <div class="item-actions">
+                                <button class="btn secondary" onclick="editResult('${doc.id}', '${escape(d.tournament)}', '${escape(d.winner)}', '${escape(d.runner)}')"><i class="fas fa-edit"></i></button>
+                                <button class="btn" style="background:var(--primary)" onclick="deleteDoc('results','${doc.id}')"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                });
+            });
+
+            if(userData.role === 'admin' || userData.role === 'owner') loadPlayerList();
+            loadChat();
+        }
+
+        // Helper to escape strings for onclick
+        function escape(str) {
+            if(!str) return "";
+            return str.replace(/'/g, "\\'");
+        }
+
+        // --- ADMIN FUNCTIONS: TOURNAMENTS ---
+        async function saveTournament() {
+            const id = document.getElementById('t-id').value;
+            const data = {
+                name: document.getElementById('t-name').value,
+                date: document.getElementById('t-date').value,
+                details: document.getElementById('t-details').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            if(!data.name) return showToast("Name required", "error");
+
+            if(id) {
+                delete data.createdAt; // Don't overwrite time
+                await db.collection('tournaments').doc(id).update(data);
+                showToast("Tournament Updated");
+            } else {
+                await db.collection('tournaments').add(data);
+                showToast("Tournament Created");
+            }
+            resetForm('t');
+        }
+
+        function editTournament(id, name, date, details) {
+            document.getElementById('t-id').value = id;
+            document.getElementById('t-name').value = name;
+            document.getElementById('t-date').value = date;
+            document.getElementById('t-details').value = details;
+            document.getElementById('t-form-title').innerText = "Edit Tournament";
+        }
+
+        // --- ADMIN FUNCTIONS: TEAMS ---
+        async function saveTeam() {
+            const id = document.getElementById('tm-id').value;
+            const data = {
+                name: document.getElementById('tm-name').value,
+                players: document.getElementById('tm-players').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if(!data.name) return showToast("Team Name required", "error");
+
+            if(id) {
+                delete data.createdAt;
+                await db.collection('teams').doc(id).update(data);
+                showToast("Team Updated");
+            } else {
+                await db.collection('teams').add(data);
+                showToast("Team Created");
+            }
+            resetForm('tm');
+        }
+
+        function editTeam(id, name, players) {
+            document.getElementById('tm-id').value = id;
+            document.getElementById('tm-name').value = name;
+            document.getElementById('tm-players').value = players;
+            document.getElementById('tm-form-title').innerText = "Edit Team";
+        }
+
+        // --- ADMIN FUNCTIONS: RESULTS ---
+        async function saveResult() {
+            const id = document.getElementById('r-id').value;
+            const data = {
+                tournament: document.getElementById('r-name').value,
+                winner: document.getElementById('r-winner').value,
+                runner: document.getElementById('r-runner').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if(!data.tournament) return showToast("Details required", "error");
+
+            if(id) {
+                delete data.createdAt;
+                await db.collection('results').doc(id).update(data);
+                showToast("Result Updated");
+            } else {
+                await db.collection('results').add(data);
+                showToast("Result Posted");
+            }
+            resetForm('r');
+        }
+
+        function editResult(id, t, w, r) {
+            document.getElementById('r-id').value = id;
+            document.getElementById('r-name').value = t;
+            document.getElementById('r-winner').value = w;
+            document.getElementById('r-runner').value = r;
+            document.getElementById('r-form-title').innerText = "Edit Result";
+        }
+
+        // --- COMMON ADMIN UTILS ---
+        function resetForm(prefix) {
+            document.getElementById(`${prefix}-id`).value = "";
+            document.getElementById(`${prefix}-name`).value = "";
+            // Clear specific fields based on prefix
+            if(prefix === 't') {
+                document.getElementById('t-date').value = "";
+                document.getElementById('t-details').value = "";
+                document.getElementById('t-form-title').innerText = "Create Tournament";
+            }
+            if(prefix === 'tm') {
+                document.getElementById('tm-players').value = "";
+                document.getElementById('tm-form-title').innerText = "Create Team";
+            }
+            if(prefix === 'r') {
+                document.getElementById('r-winner').value = "";
+                document.getElementById('r-runner').value = "";
+                document.getElementById('r-form-title').innerText = "Post Result";
+            }
+        }
+
+        function deleteDoc(col, id) {
+            if(confirm("Are you sure you want to delete this?")) {
+                db.collection(col).doc(id).delete();
+                showToast("Deleted");
+            }
+        }
+
+        // --- CHAT SYSTEM (UPDATED) ---
+        let chatUnsub;
+        function loadChat() {
+            if(chatUnsub) chatUnsub();
+            
+            chatUnsub = db.collection('chat').orderBy('timestamp', 'asc').limitToLast(50).onSnapshot(snap => {
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = "";
+                
+                snap.forEach(doc => {
+                    const msg = doc.data();
+                    const isSelf = msg.uid === currentUser.uid;
+                    const date = msg.timestamp ? new Date(msg.timestamp.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '...';
+                    
+                    let badge = "";
+                    if(msg.role === 'owner') badge = `<i class="fas fa-crown badge-owner"></i>`;
+                    else if(msg.role === 'admin') badge = `<span class="badge-admin">Admin</span>`;
+
+                    // Admin Menu (Three dots)
+                    let adminMenu = "";
+                    if((userData.role === 'admin' || userData.role === 'owner') && !isSelf) {
+                        adminMenu = `
+                            <div class="msg-menu-btn" onclick="toggleMsgMenu('${doc.id}')">⋮</div>
+                            <div class="msg-dropdown" id="menu-${doc.id}">
+                                <div class="menu-item" onclick="timeoutUser('${msg.uid}', 10)">Timeout 10m</div>
+                                <div class="menu-item" onclick="timeoutUser('${msg.uid}', 60)">Timeout 1h</div>
+                                <div class="menu-item" onclick="timeoutUser('${msg.uid}', 1440)">Timeout 24h</div>
+                                <div class="menu-item delete" onclick="deleteChat('${doc.id}')">Delete Message</div>
+                            </div>
+                        `;
+                    }
+
+                    container.innerHTML += `
+                        <div class="message ${isSelf ? 'self' : ''}">
+                            <div class="msg-header">
+                                ${badge} <strong>${msg.username}</strong> <span>${date}</span>
+                                ${adminMenu}
+                            </div>
+                            <div class="msg-text">${msg.text}</div>
+                        </div>
+                    `;
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        async function sendMessage() {
+            // Check Mute Status first
+            const userDoc = await db.collection('users').doc(currentUser.uid).get();
+            const myData = userDoc.data();
+            
+            if(myData.mutedUntil > Date.now()) {
+                const remaining = Math.ceil((myData.mutedUntil - Date.now()) / 60000);
+                showToast(`You are timed out for ${remaining} more minutes.`, "error");
+                return;
+            }
+
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            await db.collection('chat').add({
+                text: text,
+                username: userData.username,
+                uid: currentUser.uid,
+                role: userData.role,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            input.value = "";
+        }
+
+        // Chat Admin Actions
+        function toggleMsgMenu(id) {
+            const menu = document.getElementById(`menu-${id}`);
+            // Close others
+            document.querySelectorAll('.msg-dropdown').forEach(el => {
+                if(el.id !== `menu-${id}`) el.classList.remove('show');
+            });
+            menu.classList.toggle('show');
+        }
+        
+        // Close menus when clicking elsewhere
+        window.onclick = function(event) {
+            if (!event.target.matches('.msg-menu-btn')) {
+                document.querySelectorAll('.msg-dropdown').forEach(el => el.classList.remove('show'));
+            }
+        }
+
+        function deleteChat(id) {
+            db.collection('chat').doc(id).delete();
+        }
+
+        async function timeoutUser(targetUid, minutes) {
+            const until = Date.now() + (minutes * 60 * 1000);
+            await db.collection('users').doc(targetUid).update({ mutedUntil: until });
+            showToast(`User timed out for ${minutes} minutes`);
+        }
+
+        // --- PLAYER SEARCH ---
+        let allPlayers = [];
+        async function loadPlayerList() {
+            const snap = await db.collection('users').get();
+            allPlayers = [];
+            const tbody = document.querySelector('#player-table tbody');
+            tbody.innerHTML = "";
+            
+            snap.forEach(doc => {
+                const p = doc.data();
+                allPlayers.push(p);
+                renderPlayerRow(p, tbody);
+            });
+        }
+
+        function renderPlayerRow(p, tbody) {
+            const isMuted = p.mutedUntil > Date.now();
+            const status = isMuted ? '<span style="color:red">Timed Out</span>' : '<span style="color:var(--success)">Active</span>';
+            tbody.innerHTML += `<tr><td>${p.username}</td><td>${p.email}</td><td>${p.role}</td><td>${status}</td></tr>`;
+        }
+
+        function searchPlayers() {
+            const term = document.getElementById('player-search').value.toLowerCase();
+            const tbody = document.querySelector('#player-table tbody');
+            tbody.innerHTML = "";
+            allPlayers.filter(p => p.username.toLowerCase().includes(term) || p.email.toLowerCase().includes(term))
+                      .forEach(p => renderPlayerRow(p, tbody));
+        }
+
+        async function setRole(newRole) {
+            const email = document.getElementById('admin-grant-email').value;
+            const snap = await db.collection('users').where('email', '==', email).get();
+            if(snap.empty) return showToast("User not found!", "error");
+            
+            const docId = snap.docs[0].id;
+            await db.collection('users').doc(docId).update({ role: newRole });
+            showToast(`User is now ${newRole}`, "success");
+        }
+
+    </script>
+</body>
+</html>
